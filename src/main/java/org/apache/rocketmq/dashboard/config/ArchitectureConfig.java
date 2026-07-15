@@ -28,6 +28,7 @@ import org.apache.rocketmq.dashboard.architecture.impl.V5ProxyClusterProvider;
 import org.apache.rocketmq.dashboard.architecture.impl.V5ProxyMetadataProvider;
 import org.apache.rocketmq.dashboard.model.ClusterCapability;
 import org.apache.rocketmq.dashboard.service.client.GrpcClientCollector;
+import org.apache.rocketmq.dashboard.service.client.MultiProxyAdminClient;
 import org.apache.rocketmq.dashboard.service.client.ProxyAdminGrpcClient;
 import org.apache.rocketmq.dashboard.support.AutoCloseConsumerWrapper;
 import org.apache.rocketmq.tools.admin.MQAdminExt;
@@ -124,12 +125,31 @@ public class ArchitectureConfig {
     }
 
     /**
-     * Default GrpcClientCollector bean for gRPC client data collection.
-     * Uses the ProxyAdminGrpcClient to call RIP-2 Proxy Admin ListClients/DescribeClient RPCs.
+     * MultiProxyAdminClient bean for aggregated multi-Proxy operations.
+     * Connects to all configured proxy addresses on admin port 8082.
+     * Used by ProxyAdminService and GrpcClientCollector for fan-out queries.
      */
     @Bean
-    public GrpcClientCollector grpcClientCollector(ProxyAdminGrpcClient proxyAdminGrpcClient) {
-        return new GrpcClientCollector(proxyAdminGrpcClient);
+    public MultiProxyAdminClient multiProxyAdminClient(
+            @org.springframework.beans.factory.annotation.Value("${rocketmq.dashboard.proxyAddrs:#{null}}")
+            String[] proxyAddresses,
+            @org.springframework.beans.factory.annotation.Value("${rocketmq.dashboard.proxyAddress:localhost:8080}")
+            String defaultProxyAddress) {
+        if (proxyAddresses != null && proxyAddresses.length > 0) {
+            log.info("Creating MultiProxyAdminClient with {} proxy endpoints", proxyAddresses.length);
+            return new MultiProxyAdminClient(proxyAddresses);
+        }
+        // Fallback to single proxy address
+        log.info("Creating MultiProxyAdminClient with single proxy endpoint: {}", defaultProxyAddress);
+        return new MultiProxyAdminClient(new String[]{defaultProxyAddress});
+    }
+
+    /**
+     * GrpcClientCollector bean using MultiProxyAdminClient for aggregated data collection.
+     */
+    @Bean
+    public GrpcClientCollector grpcClientCollector(MultiProxyAdminClient multiProxyAdminClient) {
+        return new GrpcClientCollector(multiProxyAdminClient);
     }
 
     /**
@@ -274,14 +294,17 @@ public class ArchitectureConfig {
                 throw new RuntimeException("V5 Provider initialization failed", e);
             }
 
-            // Create gRPC Proxy Admin client for RIP-2 M1 integration
+            // Create MultiProxyAdminClient for aggregated RIP-2 operations
+            MultiProxyAdminClient multiProxyClient = new MultiProxyAdminClient(proxyAddresses);
+
+            // Create gRPC Proxy Admin client (uses first proxy for backward compat)
             ProxyAdminGrpcClient proxyAdminGrpcClient = new ProxyAdminGrpcClient(proxyAddresses[0]);
 
             // Create V5-specific admin client with Remoting fallback + gRPC channel
             GrpcAdminClient grpcClient = new GrpcAdminClient(proxyAddresses[0], mqAdminExt, proxyAdminGrpcClient);
 
-            // Create GrpcClientCollector using the real gRPC client
-            GrpcClientCollector grpcCollector = new GrpcClientCollector(proxyAdminGrpcClient);
+            // Create GrpcClientCollector using MultiProxyAdminClient for aggregation
+            GrpcClientCollector grpcCollector = new GrpcClientCollector(multiProxyClient);
 
             // Create V5-specific metadata provider
             V5ProxyMetadataProvider v5Metadata = new V5ProxyMetadataProvider(

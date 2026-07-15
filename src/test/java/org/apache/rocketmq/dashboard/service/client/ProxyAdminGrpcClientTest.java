@@ -192,12 +192,110 @@ public class ProxyAdminGrpcClientTest {
         assertTrue("Result should be empty for empty topic", result.isEmpty());
     }
 
+    // ==================== M2: getConfig when not available ====================
+
+    @Test
+    public void testGetConfigReturnsNullWhenNotAvailable() {
+        Object result = client.getConfig();
+        assertNull("Should return null when not available", result);
+    }
+
+    // ==================== M2: updateConfig when not available ====================
+
+    @Test
+    public void testUpdateConfigReturnsNullWhenNotAvailable() {
+        apache.rocketmq.proxy.admin.v1.ProxyRuntimeConfig config =
+            apache.rocketmq.proxy.admin.v1.ProxyRuntimeConfig.newBuilder().build();
+        Object result = client.updateConfig(config);
+        assertNull("Should return null when not available", result);
+    }
+
+    @Test
+    public void testUpdateConfigReturnsNullForNullConfig() {
+        Object result = client.updateConfig(null);
+        assertNull("Should return null for null config", result);
+    }
+
+    // ==================== M2: disconnectClient when not available ====================
+
+    @Test
+    public void testDisconnectClientReturnsFalseWhenNotAvailable() {
+        boolean result = client.disconnectClient("clientId", "reason");
+        assertFalse("Should return false when not available", result);
+    }
+
+    @Test
+    public void testDisconnectClientReturnsFalseForNullClientId() {
+        boolean result = client.disconnectClient(null, "reason");
+        assertFalse("Should return false for null clientId", result);
+    }
+
+    @Test
+    public void testDisconnectClientReturnsFalseForEmptyClientId() {
+        boolean result = client.disconnectClient("", "reason");
+        assertFalse("Should return false for empty clientId", result);
+    }
+
+    // ==================== M3: describePopReceiptHandles when not available ====================
+
+    @Test
+    public void testDescribePopReceiptHandlesReturnsNullWhenNotAvailable() {
+        Object result = client.describePopReceiptHandles("group1", "topic1", 1, 20);
+        assertNull("Should return null when not available", result);
+    }
+
+    @Test
+    public void testDescribePopReceiptHandlesReturnsNullForNullGroup() {
+        Object result = client.describePopReceiptHandles(null, "topic1", 1, 20);
+        assertNull("Should return null for null group", result);
+    }
+
+    @Test
+    public void testDescribePopReceiptHandlesReturnsNullForEmptyGroup() {
+        Object result = client.describePopReceiptHandles("", "topic1", 1, 20);
+        assertNull("Should return null for empty group", result);
+    }
+
+    // ==================== M4: describeBatchConsumeDiagnostics when not available ====================
+
+    @Test
+    public void testDescribeBatchConsumeDiagnosticsReturnsNullWhenNotAvailable() {
+        Object result = client.describeBatchConsumeDiagnostics("group1", "topic1", null, 1, 20);
+        assertNull("Should return null when not available", result);
+    }
+
+    @Test
+    public void testDescribeBatchConsumeDiagnosticsReturnsNullForNullGroup() {
+        Object result = client.describeBatchConsumeDiagnostics(null, null, null, 1, 20);
+        assertNull("Should return null for null group", result);
+    }
+
+    @Test
+    public void testDescribeBatchConsumeDiagnosticsReturnsNullForEmptyGroup() {
+        Object result = client.describeBatchConsumeDiagnostics("", null, null, 1, 20);
+        assertNull("Should return null for empty group", result);
+    }
+
+    // ==================== Accessor methods ====================
+
+    @Test
+    public void testGetProxyHostReturnsCorrectHost() {
+        assertEquals(TEST_HOST, client.getProxyHost());
+    }
+
+    @Test
+    public void testGetProxyAdminPortReturnsCorrectPort() {
+        assertEquals(DEFAULT_ADMIN_PORT, client.getProxyAdminPort());
+    }
+
     // ==================== shutdown behavior ====================
 
     @Test
     public void testShutdownSetsAvailableFalse() throws Exception {
         ManagedChannel mockChannel = mock(ManagedChannel.class);
         when(mockChannel.isShutdown()).thenReturn(false);
+        when(mockChannel.shutdown()).thenReturn(mockChannel);
+        when(mockChannel.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).thenReturn(true);
 
         setFieldValue(client, "available", true);
         setFieldValue(client, "channel", mockChannel);

@@ -72,7 +72,7 @@ public class GrpcClientCollectorTest {
 
     @Test
     public void testHasDataAvailableReturnsFalseForNullGrpcClient() {
-        GrpcClientCollector nullCollector = new GrpcClientCollector(null);
+        GrpcClientCollector nullCollector = new GrpcClientCollector((ProxyAdminGrpcClient) null);
 
         assertFalse("hasDataAvailable should return false when grpcClient is null",
             nullCollector.hasDataAvailable());
@@ -224,21 +224,51 @@ public class GrpcClientCollectorTest {
 
     // ==================== Null grpcClient method behavior ====================
 
-    @Test(expected = NullPointerException.class)
-    public void testListClientInstancesThrowsNpeForNullGrpcClient() {
-        GrpcClientCollector nullCollector = new GrpcClientCollector(null);
-        nullCollector.listClientInstances(Optional.of(TEST_TOPIC), Optional.of(TEST_GROUP));
+    @Test
+    public void testListClientInstancesReturnsEmptyForNullGrpcClient() {
+        GrpcClientCollector nullCollector = new GrpcClientCollector((ProxyAdminGrpcClient) null);
+        List<org.apache.rocketmq.dashboard.model.ClientInstance> result =
+            nullCollector.listClientInstances(Optional.of(TEST_TOPIC), Optional.of(TEST_GROUP));
+        assertNotNull(result);
+        assertTrue("Should return empty for null grpc client", result.isEmpty());
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testGetClientInstanceThrowsNpeForNullGrpcClient() {
-        GrpcClientCollector nullCollector = new GrpcClientCollector(null);
-        nullCollector.getClientInstance(TEST_CLIENT_ID);
+    @Test
+    public void testGetClientInstanceReturnsEmptyForNullGrpcClient() {
+        GrpcClientCollector nullCollector = new GrpcClientCollector((ProxyAdminGrpcClient) null);
+        Optional<org.apache.rocketmq.dashboard.model.ClientInstance> result =
+            nullCollector.getClientInstance(TEST_CLIENT_ID);
+        assertFalse("Should return empty for null grpc client", result.isPresent());
     }
 
-    @Test(expected = NullPointerException.class)
-    public void testGetClientSubscriptionsThrowsNpeForNullGrpcClient() {
-        GrpcClientCollector nullCollector = new GrpcClientCollector(null);
-        nullCollector.getClientSubscriptions(TEST_CLIENT_ID);
+    @Test
+    public void testGetClientSubscriptionsReturnsEmptyForNullGrpcClient() {
+        GrpcClientCollector nullCollector = new GrpcClientCollector((ProxyAdminGrpcClient) null);
+        List<SubscriptionInfo> result = nullCollector.getClientSubscriptions(TEST_CLIENT_ID);
+        assertNotNull(result);
+        assertTrue("Should return empty for null grpc client", result.isEmpty());
+    }
+
+    // ==================== MultiProxy mode tests ====================
+
+    @Test
+    public void testHasDataAvailableReturnsTrueWhenMultiProxyAvailable() {
+        MultiProxyAdminClient mockMultiProxy = org.mockito.Mockito.mock(MultiProxyAdminClient.class);
+        when(mockMultiProxy.isAvailable()).thenReturn(true);
+        when(mockMultiProxy.getClients()).thenReturn(Collections.emptyList());
+
+        GrpcClientCollector multiCollector = new GrpcClientCollector(mockMultiProxy);
+        assertTrue("hasDataAvailable should return true when multi-proxy available",
+            multiCollector.hasDataAvailable());
+    }
+
+    @Test
+    public void testSetMultiProxyClient() {
+        MultiProxyAdminClient mockMultiProxy = org.mockito.Mockito.mock(MultiProxyAdminClient.class);
+        when(mockMultiProxy.isAvailable()).thenReturn(true);
+
+        collector.setMultiProxyClient(mockMultiProxy);
+        assertNotNull("MultiProxyClient should be set", collector.getMultiProxyClient());
+        assertTrue("hasDataAvailable should use multi-proxy", collector.hasDataAvailable());
     }
 }

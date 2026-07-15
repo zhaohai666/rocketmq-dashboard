@@ -31,7 +31,10 @@ import org.slf4j.LoggerFactory;
  * gRPC channel client collector for RIP-1 CLIENT-01 dual-protocol unified view.
  *
  * <p>Collects client instance data from the gRPC Proxy Admin service (RIP-2 M1).
- * Uses {@link ProxyAdminGrpcClient} to call ProxyClientAdminService RPCs:
+ * Supports both single-proxy ({@link ProxyAdminGrpcClient}) and multi-proxy
+ * ({@link MultiProxyAdminClient}) modes for aggregated client data collection.
+ *
+ * <p>Uses the configured client to call ProxyClientAdminService RPCs:
  * <ul>
  *   <li>ListClients — paginated listing of all online gRPC clients</li>
  *   <li>DescribeClient — detailed info for a specific client</li>
@@ -51,14 +54,41 @@ public class GrpcClientCollector {
     private static final Logger log = LoggerFactory.getLogger(GrpcClientCollector.class);
 
     private final ProxyAdminGrpcClient grpcClient;
+    private volatile MultiProxyAdminClient multiProxyClient;
 
     /**
-     * Create a new GrpcClientCollector with a gRPC client to the Proxy Admin service.
+     * Create a new GrpcClientCollector with a single gRPC client.
      *
      * @param grpcClient the ProxyAdminGrpcClient for gRPC calls
      */
     public GrpcClientCollector(ProxyAdminGrpcClient grpcClient) {
         this.grpcClient = grpcClient;
+    }
+
+    /**
+     * Create a new GrpcClientCollector with a multi-proxy aggregation client.
+     *
+     * @param multiProxyClient the MultiProxyAdminClient for aggregated gRPC calls
+     */
+    public GrpcClientCollector(MultiProxyAdminClient multiProxyClient) {
+        this.multiProxyClient = multiProxyClient;
+        this.grpcClient = multiProxyClient.getClients().isEmpty() ? null
+            : multiProxyClient.getClients().get(0);
+    }
+
+    /**
+     * Set the multi-proxy client for aggregated queries.
+     * When set, all list operations will fan-out to all proxies.
+     */
+    public void setMultiProxyClient(MultiProxyAdminClient multiProxyClient) {
+        this.multiProxyClient = multiProxyClient;
+    }
+
+    /**
+     * Get the underlying MultiProxyAdminClient.
+     */
+    public MultiProxyAdminClient getMultiProxyClient() {
+        return multiProxyClient;
     }
 
     /**
@@ -71,7 +101,12 @@ public class GrpcClientCollector {
      */
     public List<org.apache.rocketmq.dashboard.model.ClientInstance> listClientInstances(
             Optional<String> topic, Optional<String> group) {
-        if (!grpcClient.isAvailable()) {
+        // Use multi-proxy client if available for aggregated results
+        if (multiProxyClient != null && multiProxyClient.isAvailable()) {
+            return listClientInstancesMultiProxy(topic, group);
+        }
+
+        if (grpcClient == null || !grpcClient.isAvailable()) {
             log.debug("[GRPC-CLIENT] gRPC channel not available, returning empty list");
             return Collections.emptyList();
         }
@@ -98,6 +133,32 @@ public class GrpcClientCollector {
     }
 
     /**
+     * List client instances using multi-proxy aggregation.
+     */
+    private List<org.apache.rocketmq.dashboard.model.ClientInstance> listClientInstancesMultiProxy(
+            Optional<String> topic, Optional<String> group) {
+        try {
+            String topicFilter = topic.orElse(null);
+            String groupFilter = group.orElse(null);
+
+            List<ClientInstance> protoClients = multiProxyClient.listClients(
+                groupFilter, topicFilter, null, 1, 100);
+
+            List<org.apache.rocketmq.dashboard.model.ClientInstance> result = new ArrayList<>();
+            for (ClientInstance proto : protoClients) {
+                result.add(convertToModel(proto));
+            }
+
+            log.info("[GRPC-CLIENT] Listed {} gRPC clients from {} proxies (topic={}, group={})",
+                result.size(), multiProxyClient.getTotalCount(), topicFilter, groupFilter);
+            return result;
+        } catch (Exception e) {
+            log.error("[GRPC-CLIENT] Failed to list clients via multi-proxy", e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
      * Query detailed information for a specific client instance via gRPC Proxy Admin.
      * RIP-2 integration: calls ProxyClientAdminService.DescribeClient RPC.
      *
@@ -105,12 +166,21 @@ public class GrpcClientCollector {
      * @return Optional containing the ClientInstance if found, empty otherwise
      */
     public Optional<org.apache.rocketmq.dashboard.model.ClientInstance> getClientInstance(String clientId) {
-        if (!grpcClient.isAvailable() || clientId == null || clientId.isEmpty()) {
+        if (clientId == null || clientId.isEmpty()) {
             return Optional.empty();
         }
 
         try {
-            ClientDetail detail = grpcClient.describeClient(clientId);
+            // Use multi-proxy client if available
+            ClientDetail detail = null;
+            if (multiProxyClient != null && multiProxyClient.isAvailable()) {
+                detail = multiProxyClient.describeClient(clientId);
+            } else if (grpcClient != null && grpcClient.isAvailable()) {
+                detail = grpcClient.describeClient(clientId);
+            } else {
+                return Optional.empty();
+            }
+
             if (detail == null || !detail.hasClientInstance()) {
                 log.debug("[GRPC-CLIENT] Client {} not found via gRPC", clientId);
                 return Optional.empty();
@@ -134,12 +204,21 @@ public class GrpcClientCollector {
      * @return list of subscription info entries
      */
     public List<SubscriptionInfo> getClientSubscriptions(String clientId) {
-        if (!grpcClient.isAvailable() || clientId == null || clientId.isEmpty()) {
+        if (clientId == null || clientId.isEmpty()) {
             return Collections.emptyList();
         }
 
         try {
-            ClientDetail detail = grpcClient.describeClient(clientId);
+            // Use multi-proxy client if available
+            ClientDetail detail = null;
+            if (multiProxyClient != null && multiProxyClient.isAvailable()) {
+                detail = multiProxyClient.describeClient(clientId);
+            } else if (grpcClient != null && grpcClient.isAvailable()) {
+                detail = grpcClient.describeClient(clientId);
+            } else {
+                return Collections.emptyList();
+            }
+
             if (detail == null || !detail.hasSettings()) {
                 return Collections.emptyList();
             }
@@ -167,6 +246,9 @@ public class GrpcClientCollector {
      * Check whether the gRPC channel is available for client data collection.
      */
     public boolean hasDataAvailable() {
+        if (multiProxyClient != null) {
+            return multiProxyClient.isAvailable();
+        }
         return grpcClient != null && grpcClient.isAvailable();
     }
 
