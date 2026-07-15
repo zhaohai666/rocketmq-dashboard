@@ -208,22 +208,17 @@ public class CloudProviderFactory {
 
     private static CloudProviderBundle createTencentBundle(CloudProviderConfig config) {
         TencentCloudClusterProvider clusterProvider = new TencentCloudClusterProvider(config);
-        // TODO: Create TencentCloudMetadataProvider when implemented
-        // For now, use a stub that throws UnsupportedOperationException
-        AliyunMetadataProvider metadataProvider = new AliyunMetadataProvider(config);
+        TencentCloudMetadataProvider metadataProvider = new TencentCloudMetadataProvider(config);
         CloudAdminClient adminClient = new CloudAdminClient(config);
 
-        log.warn("Tencent Cloud MetadataProvider is using Aliyun stub - needs dedicated implementation");
         return new CloudProviderBundle(clusterProvider, metadataProvider, adminClient, config);
     }
 
     private static CloudProviderBundle createHuaweiBundle(CloudProviderConfig config) {
         HuaweiCloudClusterProvider clusterProvider = new HuaweiCloudClusterProvider(config);
-        // TODO: Create HuaweiCloudMetadataProvider when implemented
-        AliyunMetadataProvider metadataProvider = new AliyunMetadataProvider(config);
+        HuaweiCloudMetadataProvider metadataProvider = new HuaweiCloudMetadataProvider(config);
         CloudAdminClient adminClient = new CloudAdminClient(config);
 
-        log.warn("Huawei Cloud MetadataProvider is using Aliyun stub - needs dedicated implementation");
         return new CloudProviderBundle(clusterProvider, metadataProvider, adminClient, config);
     }
 

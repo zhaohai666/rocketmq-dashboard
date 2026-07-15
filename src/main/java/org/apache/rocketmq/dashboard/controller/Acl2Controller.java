@@ -17,6 +17,7 @@
 package org.apache.rocketmq.dashboard.controller;
 
 import org.apache.rocketmq.dashboard.model.Acl2PolicyContext;
+import org.apache.rocketmq.dashboard.permisssion.Permission;
 import org.apache.rocketmq.dashboard.service.Acl2Service;
 import org.apache.rocketmq.dashboard.support.JsonResult;
 import org.slf4j.Logger;
@@ -57,6 +58,7 @@ import java.util.Map;
  */
 @Controller
 @RequestMapping("/api/acl2")
+@Permission
 public class Acl2Controller {
 
     private static final Logger log = LoggerFactory.getLogger(Acl2Controller.class);

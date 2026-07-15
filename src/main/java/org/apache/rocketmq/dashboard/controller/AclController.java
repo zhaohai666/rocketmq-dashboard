@@ -25,6 +25,7 @@ import org.apache.rocketmq.dashboard.model.PolicyRequest;
 import org.apache.rocketmq.dashboard.model.request.UserCreateRequest;
 import org.apache.rocketmq.dashboard.model.request.UserInfoParam;
 import org.apache.rocketmq.dashboard.model.request.UserUpdateRequest;
+import org.apache.rocketmq.dashboard.permisssion.Permission;
 import org.apache.rocketmq.dashboard.service.AclService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -43,6 +44,7 @@ import java.util.Set;
 
 @Controller
 @RequestMapping("/acl")
+@Permission
 public class AclController {
 
     @Autowired

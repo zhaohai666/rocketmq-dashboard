@@ -17,6 +17,7 @@
 package org.apache.rocketmq.dashboard.controller;
 
 import org.apache.rocketmq.dashboard.model.NamespaceInfo;
+import org.apache.rocketmq.dashboard.permisssion.Permission;
 import org.apache.rocketmq.dashboard.service.NamespaceService;
 import org.apache.rocketmq.dashboard.support.JsonResult;
 import org.slf4j.Logger;
@@ -57,6 +58,7 @@ import java.util.Optional;
  */
 @Controller
 @RequestMapping("/api/namespace")
+@Permission
 public class NamespaceController {
 
     private static final Logger log = LoggerFactory.getLogger(NamespaceController.class);

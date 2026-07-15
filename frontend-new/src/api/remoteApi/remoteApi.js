@@ -1362,6 +1362,75 @@ const remoteApi = {
             console.error("Error fetching liteTopic capability:", error);
             return {status: 1, errMsg: "Failed to fetch LiteTopic capability"};
         }
+    },
+
+    // ========== Namespace APIs ==========
+    queryNamespaceList: async (callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl("/api/namespace/list"));
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to fetch namespace list"});
+        }
+    },
+
+    queryNamespaceDetail: async (name, callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl(`/api/namespace/${encodeURIComponent(name)}`));
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to fetch namespace detail"});
+        }
+    },
+
+    createNamespace: async (payload, callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl("/api/namespace/create"), {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to create namespace"});
+        }
+    },
+
+    updateNamespace: async (payload, callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl("/api/namespace/update"), {
+                method: "PUT",
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to update namespace"});
+        }
+    },
+
+    deleteNamespace: async (name, callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl(`/api/namespace/${encodeURIComponent(name)}`), {
+                method: "DELETE",
+            });
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to delete namespace"});
+        }
+    },
+
+    queryNamespaceCapability: async (callback) => {
+        try {
+            const response = await remoteApi._fetch(remoteApi.buildUrl("/api/namespace/capability"));
+            const data = await response.json();
+            callback(data);
+        } catch (error) {
+            callback({status: 1, errMsg: "Failed to fetch namespace capability"});
+        }
     }
 };
 

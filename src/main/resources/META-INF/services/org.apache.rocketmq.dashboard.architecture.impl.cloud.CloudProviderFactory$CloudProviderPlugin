@@ -1,0 +1,4 @@
+# AWS Cloud Provider Plugin for RocketMQ Dashboard
+# This file registers the AWS SPI plugin for auto-discovery via ServiceLoader.
+# Uncomment the line below to enable the AWS cloud provider adapter.
+# org.apache.rocketmq.dashboard.architecture.impl.cloud.AwsCloudProviderPlugin
